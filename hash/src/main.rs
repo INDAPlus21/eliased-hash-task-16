@@ -39,15 +39,17 @@ use clap::Parser;
 #[derive(Parser)]
 struct Cli {
     /// The pattern to look for
-    to_input: Vec<String>,
+    file_path: String,
+    input: Vec<String>,
 }
 
-fn insertionCLI() -> Vec<String> {
+fn getCLI() -> Cli {
     println!("Hello, world!");
     let args = Cli::parse();
 
-    println!("{:?}", args.to_input);
-    return args.to_input;
+    // println!("{:?}", args.input);
+    // println!("{:?}", args.file_path);
+    return args //args.to_input;
 }
 
 // By default, struct field names are deserialized based on the position of
@@ -60,22 +62,73 @@ struct City {
 }
 
 fn parseCSV() -> Result<(), Box<dyn Error>> {
-    let mut rdr = csv::Reader::from_reader(io::stdin());
+    let mut file = OpenOptions::new()
+    .write(true)
+    .create(true)
+    // .append(true)
+    .read(true)
+    .open("src/cities.csv")
+    .unwrap();
+
+    let mut rdr = csv::Reader::from_reader(file);
     for result in rdr.deserialize() {
         // Notice that we need to provide a type hint for automatic
         // deserialization.
-        let record: City = result?;
+        // let record: City = result?;
+        let record: Vec<String> = result?; 
         println!("{:?}", record);
     }
     Ok(())
 }
 
-fn writeCSV(to_insert: Vec<String>) -> Result<(), Box<dyn Error>> {
+fn removeCSV(to_remove: Vec<String>) -> Result<(), Box<dyn Error>> {
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        // .append(true)
+        .read(true)
+        .open("src/cities.csv")
+        .unwrap();
+
+    let mut write_file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        // .append(true)
+        .read(true)
+        .open("src/cities.csv")
+        .unwrap();
+
+    let mut rdr = csv::Reader::from_reader(file);
+    let mut wtr = csv::Writer::from_writer(write_file);
+    let deserialized = rdr.deserialize();
+
+    // wtr.flush()?;
+
+    let mut do_once = 0; 
+    for result in deserialized {
+        if do_once < 2 {
+        // Notice that we need to provide a type hint for automatic
+        // deserialization.
+        // let record: City = result?;
+        let record: Vec<String> = result?; 
+        if record != to_remove {
+            wtr.write_record(&record)?;
+        }
+        wtr.flush()?;
+        println!("{:?}", record);
+        do_once += 1; 
+        }
+    }
+    
+    Ok(())
+}
+
+fn writeCSV(cli: Cli) -> Result<(), Box<dyn Error>> {
     let mut file = OpenOptions::new()
         .write(true)
         .create(true)
         .append(true)
-        .open("src/cities.csv")
+        .open(cli.file_path)
         .unwrap();
 
     // let mut wtr = csv::Writer::from_writer(io::stdout());
@@ -95,16 +148,51 @@ fn writeCSV(to_insert: Vec<String>) -> Result<(), Box<dyn Error>> {
         population: Some(9686),
     })?;  */
     // wtr.write_record(&["Uppsala", "Uppland", "177074"])?;
-    wtr.write_record(&to_insert)?;
+    
+    wtr.write_record(&cli.input)?;
 
-    // wtr.flush()?;
+    wtr.flush()?;
     Ok(())
 }
 
+fn search(cli: Cli) -> Result<(), Box<dyn Error>> {
+    println!("{:?}", &cli.file_path); 
+
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .append(true)
+        .read(true)
+        .open(cli.file_path)
+        .unwrap();
+
+
+    let mut rdr = csv::Reader::from_reader(file);
+    
+    for result in rdr.deserialize() {
+        let record: Vec<String> = result?; 
+        // println!("{:?} {:?}", record, &cli.input[0]);
+        for element in &cli.input {
+            if record.contains(element) {
+                println!("{:?}", record);
+            }
+            break; 
+        }
+    }
+
+    Ok(())
+}
+
+// static mut global_something : Cli; 
+
 fn main() {
-    // writeCSV();
+    let global_cli = getCLI();
+    search(global_cli); 
+    // writeCSV(global_cli);
     // parseCSV();
-    let to_insert = insertionCLI();
-    println!("{:?}", to_insert); 
-    writeCSV(to_insert);
+    // let global_cli = getCLI();
+    // removeCSV(to_remove); 
+    // let to_insert = getCLI();
+    // println!("{:?}", to_insert); 
+    // writeCSV(to_insert);
 }
