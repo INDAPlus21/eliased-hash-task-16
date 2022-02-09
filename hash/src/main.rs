@@ -108,12 +108,23 @@ fn parseCSV(mut file: &File) -> Result<Vec<City>, Box<dyn Error>> {
         // Notice that we need to provide a type hint for automatic
         // deserialization.
         let record: City = result?; //?;
-                                    // println!("{:?}", &record);
+        table = addRecord(record, table);
+        // println!("{:?}", &record);
 
-        let hash = getHash(&record.name);
+        /*let mut hash = getHash(&record.name);
         println!("hash: {:?}", hash);
 
-        table[hash] = record; 
+        /*if table[hash].name == "" { // Means it's empty
+            table[hash] = record;
+        } else {
+            println!("colliding index!");
+        }*/
+
+        // linear search if occupied, otherwise constant time
+        while table[hash].name != "" { // Means it's occupied
+            hash += 1;
+        }
+        table[hash] = record;*/
 
         // table.push(record);
         // let record: Vec<String> = result?;
@@ -131,10 +142,12 @@ fn parseCSV(mut file: &File) -> Result<Vec<City>, Box<dyn Error>> {
     return Ok(table);
 }
 
-fn printTable(table: &Vec<City>) {
+fn printTable(table: &Vec<City>, print_empty: bool) {
     println!("----------------------------------------------------");
     for record in table {
-        println!("{:?}", record);
+        if record.name != "" || print_empty {
+            println!("{:?}", record);
+        }
     }
     println!("----------------------------------------------------");
 }
@@ -181,7 +194,7 @@ fn removeCSV(to_remove: Vec<String>) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn writeCSV(args: Args) -> Result<(), Box<dyn Error>> {
+/*fn writeCSV(args: Args) -> Result<(), Box<dyn Error>> {
     let mut file = OpenOptions::new()
         .write(true)
         .create(true)
@@ -211,19 +224,45 @@ fn writeCSV(args: Args) -> Result<(), Box<dyn Error>> {
 
     wtr.flush()?;
     Ok(())
-}
+}*/
 
 fn addRecord(record: City, mut table: Vec<City>) -> Vec<City> {
-    table.push(record);
+    let mut hash = getHash(&record.name);
+    println!("hash: {:?}", hash);
+
+    /*if table[hash].name == "" { // Means it's empty
+        table[hash] = record;
+    } else {
+        println!("colliding index!");
+    }*/
+
+    // linear search if occupied, otherwise constant time
+    while table[hash].name != "" {
+        // Means it's occupied
+        hash += 1;
+    }
+
+    table[hash] = record;
+    // table.push(record);
 
     return table;
 }
 
-/*fn removeRecord(record: City, mut table: Vec<City>) -> Vec<City>  {
-    table.pop(record);
+fn removeRecord(record: City, mut table: Vec<City>) -> Vec<City> {
+    let mut hash = getHash(&record.name);
+    println!("hash: {:?}", hash);
 
-    return table
-}*/
+    // linear search if occupied, otherwise constant time
+    // WAIT!! THIS WILL ACTUALLY WORK! (right...?)
+    while table[hash].name != record.name {
+        // Means it's occupied
+        hash += 1;
+    }
+
+    table.remove(hash);
+
+    return table;
+}
 
 fn search(args: Args) -> Result<(), Box<dyn Error>> {
     println!("{:?}", &args.file_path);
@@ -263,7 +302,9 @@ fn writeToCSV(file_path: &String, table: Vec<City>) -> Result<(), Box<dyn Error>
     let mut wtr = csv::Writer::from_writer(file);
 
     for record in table {
-        wtr.serialize(record)?;
+        if record.name != "" {
+            wtr.serialize(record)?;
+        }
     }
 
     Ok(())
@@ -302,6 +343,18 @@ fn getHash(key: &String) -> usize {
     return hash % 100;
 }
 
+fn selectRecord(name: String, table: &Vec<City>) {
+    let mut hash = getHash(&name);
+    println!("hash: {:?}", hash);
+
+    while table[hash].name != name {
+        // Means it's occupied
+        hash += 1;
+    }
+    
+    println!("{:?}", table[hash]);
+}
+
 fn main() /*-> Result<T, E>*/
 {
     //saveOnExit();
@@ -322,7 +375,7 @@ fn main() /*-> Result<T, E>*/
         .unwrap();
 
     let mut table = parseCSV(&file).unwrap();
-    printTable(&table);
+    printTable(&table, false);
 
     for _line in input.lock().lines().map(|_line| _line.unwrap()) {
         let command: Vec<String> = _line
@@ -355,17 +408,40 @@ fn main() /*-> Result<T, E>*/
             };
 
             table = addRecord(record, table);
+            printTable(&table, false);
+        } else if command.contains(&"remove".to_string()) {
+            let record: City = City {
+                name: command[1].parse().unwrap(),
+                region: command[2].parse().unwrap(),
+                population: command[3].parse().unwrap(),
+            };
+
+            // Maybe make only the name necessary (?)
+
+            table = removeRecord(record, table);
+            printTable(&table, false);
+        } else if command.contains(&"select".to_string()) {
+            // Maybe make only the name necessary (?)
+            let name = command[1].parse().unwrap();
+            // should be able to select multiple fields 
+            
+            selectRecord(name, &table);
+        } else if command.contains(&"print".to_string()) {
+            printTable(&table, false);
+        } else if command.contains(&"print_empty".to_string()) {
+            printTable(&table, true);
         } else if command.contains(&"exit".to_string()) {
             writeToCSV(&args.file_path, table);
             process::exit(0x0100);
         }
-
-        printTable(&table);
     }
+
+    // It seems logical that SQL databases implement hashing for each value in EACH table separetely, and then only arbitrarily stores it in a certain order
     // search(global_args);
     // writeCSV(global_args);
     // println!("{:?}", table);
 
+    // Maybe write to CSV after every command (? is this how it's done? look at the sqlite example)
     writeToCSV(&args.file_path, table);
 
     // let global_args = getARGS();
