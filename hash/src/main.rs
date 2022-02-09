@@ -98,8 +98,10 @@ fn parseCSV(mut file: &File) -> Result<Vec<City>, Box<dyn Error>> {
 
     // ::<_, _>
 
+    // default defaults to the types' default values! (fascinating!)
+
     let mut table = vec![City::default(); 100]; // Vec::new(); // vec![City; 100];
-    // Vec::with_capacity(100); //new();
+                                                // Vec::with_capacity(100); //new();
 
     let mut rdr = csv::Reader::from_reader(file);
     for result in rdr.deserialize() {
@@ -107,7 +109,13 @@ fn parseCSV(mut file: &File) -> Result<Vec<City>, Box<dyn Error>> {
         // deserialization.
         let record: City = result?; //?;
                                     // println!("{:?}", &record);
-        table.push(record);
+
+        let hash = getHash(&record.name);
+        println!("hash: {:?}", hash);
+
+        table[hash] = record; 
+
+        // table.push(record);
         // let record: Vec<String> = result?;
     }
 
@@ -245,6 +253,7 @@ fn search(args: Args) -> Result<(), Box<dyn Error>> {
 }
 
 fn writeToCSV(file_path: &String, table: Vec<City>) -> Result<(), Box<dyn Error>> {
+    // Overwrites it (therefore I have to redefine the file with the truncate)
     let mut file = OpenOptions::new()
         .write(true)
         .truncate(true)
@@ -281,22 +290,24 @@ fn writeToCSV(file_path: &String, table: Vec<City>) -> Result<(), Box<dyn Error>
     writeToCSV(&args.file_path, table);
 }*/
 
-fn getHash(key: String) -> u32 {
+fn getHash(key: &String) -> usize {
     let mut hash = 0;
     for char in key.chars() {
-        hash += char as u32;
-        println!("{}", char as u32);
+        hash += char as usize;
+        // println!("{}", char as u32);
     }
 
-    return hash;
+    println!("before modulo {:?}", hash);
+
+    return hash % 100;
 }
 
 fn main() /*-> Result<T, E>*/
 {
     //saveOnExit();
     // println!("{:?}", 'a' as u32);
-    let hash = getHash("Malmö".to_string());
-    println!("hash: {:?}", hash);
+    // let hash = getHash("Malmö".to_string());
+    // println!("hash: {:?}", hash);
 
     let input = io::stdin();
 
