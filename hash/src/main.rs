@@ -29,6 +29,7 @@ fn main() {
 // Implement hash table, hashing, maybe dynamically increase size to never get the load factor above 70%, then linear search
 // Imlement hashing of.. all the data? It's only by pure convention that you think that the city name is the method you should use for the key
 
+// #![feature(destructuring_assignment)]
 use std::collections::VecDeque;
 use std::error::Error;
 use std::fs::File;
@@ -50,6 +51,11 @@ struct Args {
     /// The pattern to look for
     file_path: String,
     input: Vec<String>,
+}
+
+struct Table {
+    table: Vec<City>,
+    num_records: u32,
 }
 
 /*enum Option<T> {
@@ -87,7 +93,18 @@ struct City {
 
 // inspiration: https://github.com/tsoding/rust-hash-table/blob/main/src/main.rs
 
-fn parseCSV(mut file: &File) -> Result<Vec<City>, Box<dyn Error>> {
+fn resizeTable(mut table: Table) -> Table {
+    let temp_table = table.table;
+    table.table = vec![City::default(); table.num_records as usize + 100];
+    for record in temp_table {
+        // Notice that we need to provide a type hint for automatic
+        // deserialization.
+        table = addRecord(record, table);
+    }
+    return table;
+}
+
+fn parseCSV(mut file: &File) -> Result<Table, Box<dyn Error>> {
     /*let mut file = OpenOptions::new()
     .write(true)
     .create(true)
@@ -100,8 +117,13 @@ fn parseCSV(mut file: &File) -> Result<Vec<City>, Box<dyn Error>> {
 
     // default defaults to the types' default values! (fascinating!)
 
-    let mut table = vec![City::default(); 100]; // Vec::new(); // vec![City; 100];
-                                                // Vec::with_capacity(100); //new();
+    let mut num_records = 0;
+
+    let mut table = Table {
+        table: vec![City::default(); 100],
+        num_records: 0,
+    }; // Vec::new(); // vec![City; 100];
+       // Vec::with_capacity(100); //new();
 
     let mut rdr = csv::Reader::from_reader(file);
     for result in rdr.deserialize() {
@@ -226,7 +248,7 @@ fn removeCSV(to_remove: Vec<String>) -> Result<(), Box<dyn Error>> {
     Ok(())
 }*/
 
-fn addRecord(record: City, mut table: Vec<City>) -> Vec<City> {
+fn addRecord(record: City, mut table: Table) -> Table {
     let mut hash = getHash(&record.name);
     println!("hash: {:?}", hash);
 
@@ -237,29 +259,37 @@ fn addRecord(record: City, mut table: Vec<City>) -> Vec<City> {
     }*/
 
     // linear search if occupied, otherwise constant time
-    while table[hash].name != "" {
+    while table.table[hash].name != "" {
         // Means it's occupied
         hash += 1;
     }
 
-    table[hash] = record;
+    table.table[hash] = record;
     // table.push(record);
+
+    table.num_records += 1;
+
+    if table.num_records as f32 /table.table.len() as f32 > 0.7 {
+        table = resizeTable(table); 
+    }
 
     return table;
 }
 
-fn removeRecord(record: City, mut table: Vec<City>) -> Vec<City> {
+fn removeRecord(record: City, mut table: Table) -> Table {
     let mut hash = getHash(&record.name);
     println!("hash: {:?}", hash);
 
     // linear search if occupied, otherwise constant time
     // WAIT!! THIS WILL ACTUALLY WORK! (right...?)
-    while table[hash].name != record.name {
+    while table.table[hash].name != record.name {
         // Means it's occupied
         hash += 1;
     }
 
-    table.remove(hash);
+    table.table.remove(hash);
+
+    table.num_records -= 1;
 
     return table;
 }
@@ -351,7 +381,7 @@ fn selectRecord(name: String, table: &Vec<City>) {
         // Means it's occupied
         hash += 1;
     }
-    
+
     println!("{:?}", table[hash]);
 }
 
@@ -375,7 +405,7 @@ fn main() /*-> Result<T, E>*/
         .unwrap();
 
     let mut table = parseCSV(&file).unwrap();
-    printTable(&table, false);
+    printTable(&table.table, false);
 
     for _line in input.lock().lines().map(|_line| _line.unwrap()) {
         let command: Vec<String> = _line
@@ -408,7 +438,7 @@ fn main() /*-> Result<T, E>*/
             };
 
             table = addRecord(record, table);
-            printTable(&table, false);
+            printTable(&table.table, false);
         } else if command.contains(&"remove".to_string()) {
             let record: City = City {
                 name: command[1].parse().unwrap(),
@@ -419,19 +449,19 @@ fn main() /*-> Result<T, E>*/
             // Maybe make only the name necessary (?)
 
             table = removeRecord(record, table);
-            printTable(&table, false);
+            printTable(&table.table, false);
         } else if command.contains(&"select".to_string()) {
             // Maybe make only the name necessary (?)
             let name = command[1].parse().unwrap();
-            // should be able to select multiple fields 
-            
-            selectRecord(name, &table);
+            // should be able to select multiple fields
+
+            selectRecord(name, &table.table);
         } else if command.contains(&"print".to_string()) {
-            printTable(&table, false);
+            printTable(&table.table, false);
         } else if command.contains(&"print_empty".to_string()) {
-            printTable(&table, true);
+            printTable(&table.table, true);
         } else if command.contains(&"exit".to_string()) {
-            writeToCSV(&args.file_path, table);
+            writeToCSV(&args.file_path, table.table);
             process::exit(0x0100);
         }
     }
@@ -442,7 +472,7 @@ fn main() /*-> Result<T, E>*/
     // println!("{:?}", table);
 
     // Maybe write to CSV after every command (? is this how it's done? look at the sqlite example)
-    writeToCSV(&args.file_path, table);
+    writeToCSV(&args.file_path, table.table);
 
     // let global_args = getARGS();
     // removeCSV(to_remove);
