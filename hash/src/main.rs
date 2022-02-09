@@ -43,14 +43,14 @@ struct Cli {
     input: Vec<String>,
 }
 
-fn getCLI() -> Cli {
+/*fn getCLI() -> Cli {
     println!("Hello, world!");
     let args = Cli::parse();
 
     // println!("{:?}", args.input);
     // println!("{:?}", args.file_path);
     return args //args.to_input;
-}
+}*/
 
 // By default, struct field names are deserialized based on the position of
 // a corresponding field in the CSV data's header record.
@@ -61,24 +61,28 @@ struct City {
     population: Option<u64>,
 }
 
-fn parseCSV() -> Result<(), Box<dyn Error>> {
+fn parseCSV() -> Result<Vec<City>, Box<dyn Error>> {
     let mut file = OpenOptions::new()
     .write(true)
     .create(true)
     // .append(true)
     .read(true)
     .open("src/cities.csv")
-    .unwrap();
+    .unwrap(); 
+
+    let mut table = Vec::new(); 
 
     let mut rdr = csv::Reader::from_reader(file);
     for result in rdr.deserialize() {
         // Notice that we need to provide a type hint for automatic
         // deserialization.
-        // let record: City = result?;
-        let record: Vec<String> = result?; 
-        println!("{:?}", record);
+        let record: City = result?; //?;
+        println!("{:?}", &record);
+        table.push(record); 
+        // let record: Vec<String> = result?; 
     }
-    Ok(())
+
+    return Ok(table);
 }
 
 fn removeCSV(to_remove: Vec<String>) -> Result<(), Box<dyn Error>> {
@@ -185,11 +189,18 @@ fn search(cli: Cli) -> Result<(), Box<dyn Error>> {
 
 // static mut global_something : Cli; 
 
+// follow this tutorial (but write in Rust instead of C): https://cstack.github.io/db_tutorial/parts/part1.html
+
+/* fn hash(to_hash: String) {
+    to_hash.
+} */
+
 fn main() {
-    let global_cli = getCLI();
-    search(global_cli); 
+    // let global_cli = getCLI();
+    // search(global_cli); 
     // writeCSV(global_cli);
-    // parseCSV();
+    let table = parseCSV().unwrap(); 
+    println!("{:?}", table);
     // let global_cli = getCLI();
     // removeCSV(to_remove); 
     // let to_insert = getCLI();
